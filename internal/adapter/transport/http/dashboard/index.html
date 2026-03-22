@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPA Dashboard</title>
+    <!--
+      Production note: For self-hosted assets without CDN dependency,
+      run: npx tailwindcss -o dashboard/vendor/tailwind.min.css --minify
+      Then replace the CDN script with: <link rel="stylesheet" href="vendor/tailwind.min.css">
+      For Alpine.js and Chart.js, download the minified files to dashboard/vendor/
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: {} }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="app.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 min-h-screen">
+
+<div x-data="dashboard()" x-init="init()" class="flex min-h-screen">
+
+    <!-- Sidebar -->
+    <aside class="w-56 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col flex-shrink-0 min-h-screen">
+        <!-- Logo -->
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                </div>
+                <span class="font-bold text-lg text-slate-900 dark:text-white">CPA</span>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 py-4 px-3 space-y-1">
+            <button @click="currentPage = 'overview'"
+                    :class="currentPage === 'overview' ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                Overview
+            </button>
+            <button @click="currentPage = 'providers'"
+                    :class="currentPage === 'providers' ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+                Providers
+            </button>
+            <button @click="currentPage = 'prices'"
+                    :class="currentPage === 'prices' ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
+                Live Prices
+            </button>
+            <button @click="currentPage = 'charts'"
+                    :class="currentPage === 'charts' ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                Charts
+            </button>
+            <button @click="currentPage = 'alerts'"
+                    :class="currentPage === 'alerts' ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                Alerts
+            </button>
+            <button @click="currentPage = 'subscriptions'"
+                    :class="currentPage === 'subscriptions' ? 'bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                    class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Subscriptions
+            </button>
+        </nav>
+
+        <!-- Sidebar footer -->
+        <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-400">
+            <span>Crypto Price Aggregator</span>
+        </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col min-h-screen">
+
+        <!-- Header -->
+        <header class="h-14 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between px-6 flex-shrink-0">
+            <div class="flex items-center gap-3">
+                <h1 class="text-lg font-semibold text-slate-900 dark:text-white">CPA Dashboard</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- System status -->
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="inline-block w-2 h-2 rounded-full" :class="systemReady ? 'bg-green-500 animate-pulse-dot' : 'bg-red-500'"></span>
+                    <span class="text-slate-500 dark:text-slate-400" x-text="systemReady ? 'System Ready' : 'System Offline'"></span>
+                </div>
+
+                <!-- Uptime -->
+                <div class="text-xs text-slate-400" x-show="stats.uptime_seconds">
+                    Uptime: <span x-text="formatUptime(stats.uptime_seconds)"></span>
+                </div>
+
+                <!-- Theme toggle -->
+                <button @click="toggleTheme()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors" title="Toggle theme">
+                    <svg x-show="darkMode" class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/></svg>
+                    <svg x-show="!darkMode" class="w-5 h-5 text-slate-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1 overflow-auto p-6 bg-slate-50 dark:bg-slate-900">
+
+            <!-- ==================== OVERVIEW PAGE ==================== -->
+            <div x-show="currentPage === 'overview'">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Overview</h2>
+
+                <!-- Summary cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <!-- Providers card -->
+                    <div class="bg-white dark:bg-slate-800 rounded-lg shadow p-4 border border-slate-200 dark:border-slate-700 card-hover">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">Providers</span>
+                            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900 dark:text-white">
+                            <span x-text="stats.healthy_providers || 0"></span>
+                            <span class="text-sm font-normal text-slate-400">/ <span x-text="stats.total_providers || 0"></span></span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Healthy providers</p>
+                    </div>
+
+                    <!-- Cache Hit Rate card -->
+                    <div class="bg-white dark:bg-slate-800 rounded-lg shadow p-4 border border-slate-200 dark:border-slate-700 card-hover">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">Cache Hit Rate</span>
+                            <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900 dark:text-white">
+                            <span x-text="((stats.cache_hit_rate || 0) * 100).toFixed(1)"></span><span class="text-sm font-normal text-slate-400">%</span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1"><span x-text="stats.cache_hits || 0"></span> hits / <span x-text="stats.total_requests || 0"></span> requests</p>
+                    </div>
+
+                    <!-- Subscriptions card -->
+                    <div class="bg-white dark:bg-slate-800 rounded-lg shadow p-4 border border-slate-200 dark:border-slate-700 card-hover">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">Subscriptions</span>
+                            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900 dark:text-white" x-text="stats.active_subscriptions || 0"></div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Active polling subscriptions</p>
+                    </div>
+
+                    <!-- Alerts card -->
+                    <div class="bg-white dark:bg-slate-800 rounded-lg shadow p-4 border border-slate-200 dark:border-slate-700 card-hover">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-slate-500 dark:text-slate-400">Alerts</span>
+                            <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        </div>
+                        <div class="text-2xl font-bold text-slate-900 dark:text-white">
+                            <span x-text="stats.active_alerts || 0"></span>
+                            <span class="text-sm font-normal text-slate-400">active</span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1"><span x-text="stats.triggered_alerts || 0"></span> triggered</p>
+                    </div>
+                </div>
+
+                <!-- Two-column widgets -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Live Prices widget -->
+                    <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700">
+                        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Live Prices</h3>
+                        </div>
+                        <div class="p-4">
+                            <template x-if="topPrices.length === 0">
+                                <p class="text-sm text-slate-400 text-center py-6">Waiting for WebSocket data...</p>
+                            </template>
+                            <div class="space-y-3">
+                                <template x-for="p in topPrices" :key="p.coin">
+                                    <div class="flex items-center justify-between py-2">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300" x-text="p.coin ? p.coin.substring(0,3).toUpperCase() : ''"></div>
+                                            <span class="text-sm font-medium text-slate-900 dark:text-white" x-text="coinDisplayName(p.coin)"></span>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-sm font-semibold text-slate-900 dark:text-white">$<span x-text="formatPrice(p.price)"></span></div>
+                                            <div class="text-xs" :class="p.change_24h >= 0 ? 'text-green-500' : 'text-red-500'" x-text="p.change_24h ? (p.change_24h >= 0 ? '+' : '') + parseFloat(p.change_24h).toFixed(2) + '%' : ''"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Provider Health widget -->
+                    <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700">
+                        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Provider Health</h3>
+                        </div>
+                        <div class="p-4">
+                            <template x-if="topProviders.length === 0">
+                                <p class="text-sm text-slate-400 text-center py-6">No providers loaded yet.</p>
+                            </template>
+                            <div class="space-y-3">
+                                <template x-for="p in topProviders" :key="p.Name">
+                                    <div class="flex items-center justify-between py-2">
+                                        <div class="flex items-center gap-3">
+                                            <span class="inline-block w-2 h-2 rounded-full" :class="p.Healthy ? 'bg-green-500' : 'bg-red-500'"></span>
+                                            <span class="text-sm font-medium text-slate-900 dark:text-white" x-text="p.Name"></span>
+                                        </div>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-xs text-slate-400" x-text="formatMs(p.AvgLatency)"></span>
+                                            <span class="text-xs px-2 py-0.5 rounded-full" :class="p.Healthy ? 'badge-green' : 'badge-red'" x-text="p.Healthy ? 'Healthy' : 'Down'"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== PROVIDERS PAGE ==================== -->
+            <div x-show="currentPage === 'providers'">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Providers</h2>
+                    <div class="flex items-center gap-2">
+                        <input type="text" x-model="providerSearch" placeholder="Search providers..."
+                               class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Name</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Latency</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Rate Remaining</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tier</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">State</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="p in filteredProviders" :key="p.Name">
+                                    <tr class="border-b border-slate-100 dark:border-slate-700/50 table-row-hover">
+                                        <td class="px-5 py-3">
+                                            <span class="font-medium text-slate-900 dark:text-white" x-text="p.Name"></span>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-block w-2 h-2 rounded-full" :class="p.Healthy ? 'bg-green-500' : 'bg-red-500'"></span>
+                                                <span :class="p.Healthy ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'" x-text="p.Healthy ? 'Healthy' : 'Unhealthy'"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="formatMs(p.AvgLatency)"></td>
+                                        <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="p.RemainingRate"></td>
+                                        <td class="px-5 py-3">
+                                            <span class="text-xs px-2 py-0.5 rounded-full" :class="p.Tier === 'paid' ? 'badge-blue' : 'badge-green'" x-text="p.Tier || 'free'"></span>
+                                        </td>
+                                        <td class="px-5 py-3">
+                                            <span class="text-xs px-2 py-0.5 rounded-full" :class="p.Healthy ? 'badge-green' : 'badge-red'" x-text="p.Healthy ? 'Active' : 'Circuit Open'"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <template x-if="filteredProviders.length === 0">
+                        <div class="px-5 py-8 text-center text-sm text-slate-400">No providers found.</div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ==================== LIVE PRICES PAGE ==================== -->
+            <div x-show="currentPage === 'prices'">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Live Prices</h2>
+                    <input type="text" x-model="priceSearch" placeholder="Search coins..."
+                           class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                </div>
+
+                <template x-if="sortedPrices.length === 0">
+                    <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 px-5 py-12 text-center">
+                        <svg class="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
+                        <p class="text-sm text-slate-400">Waiting for price data via WebSocket...</p>
+                    </div>
+                </template>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <template x-for="p in sortedPrices" :key="p.coin">
+                        <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 p-4 card-hover">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-300" x-text="p.coin ? p.coin.substring(0,3).toUpperCase() : ''"></div>
+                                    <div>
+                                        <div class="text-sm font-semibold text-slate-900 dark:text-white" x-text="coinDisplayName(p.coin)"></div>
+                                        <div class="text-xs text-slate-400" x-text="p.provider || ''"></div>
+                                    </div>
+                                </div>
+                                <div class="text-xs px-2 py-0.5 rounded-full" :class="p.change_24h >= 0 ? 'badge-green' : 'badge-red'" x-text="p.change_24h ? (p.change_24h >= 0 ? '+' : '') + parseFloat(p.change_24h).toFixed(2) + '%' : 'N/A'"></div>
+                            </div>
+                            <div class="text-xl font-bold text-slate-900 dark:text-white mb-1">$<span x-text="formatPrice(p.price)"></span></div>
+                            <div class="flex items-center justify-between text-xs text-slate-400">
+                                <span x-text="p.currency ? p.currency.toUpperCase() : 'USD'"></span>
+                                <span x-text="p.updated ? new Date(p.updated).toLocaleTimeString() : ''"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ==================== CHARTS PAGE ==================== -->
+            <div x-show="currentPage === 'charts'">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Charts</h2>
+
+                <!-- Chart controls -->
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 p-5 mb-6">
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Coin</label>
+                            <input type="text" x-model="chartCoin" placeholder="bitcoin"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-36">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Interval</label>
+                            <select x-model="chartInterval"
+                                    class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                <option value="1m">1m</option>
+                                <option value="5m">5m</option>
+                                <option value="15m">15m</option>
+                                <option value="1h">1h</option>
+                                <option value="4h">4h</option>
+                                <option value="1d">1d</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">From</label>
+                            <input type="datetime-local" x-model="chartFrom"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">To</label>
+                            <input type="datetime-local" x-model="chartTo"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                        </div>
+                        <button @click="loadChart()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">
+                            Load Chart
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chart canvas -->
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 p-5 mb-6">
+                    <div class="chart-container" style="height: 400px;">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Converter widget -->
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 p-5">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Converter</h3>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">From</label>
+                            <input type="text" x-model="convertForm.from" placeholder="bitcoin"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-32">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">To</label>
+                            <input type="text" x-model="convertForm.to" placeholder="ethereum"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-32">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Amount</label>
+                            <input type="text" x-model="convertForm.amount" placeholder="1"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-28">
+                        </div>
+                        <button @click="convert()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">
+                            Convert
+                        </button>
+                    </div>
+                    <template x-if="convertResult">
+                        <div class="mt-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg">
+                            <div class="text-lg font-bold text-slate-900 dark:text-white">
+                                <span x-text="convertResult.amount"></span> <span x-text="convertResult.from"></span>
+                                = <span x-text="convertResult.result"></span> <span x-text="convertResult.to"></span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-1">Rate: <span x-text="convertResult.rate"></span> (via <span x-text="convertResult.via_currency"></span>)</div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ==================== ALERTS PAGE ==================== -->
+            <div x-show="currentPage === 'alerts'">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Alerts</h2>
+
+                <!-- Create alert form -->
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 p-5 mb-6">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Create Alert</h3>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Coin ID</label>
+                            <input type="text" x-model="alertForm.coin_id" placeholder="bitcoin"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-32">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Condition</label>
+                            <select x-model="alertForm.condition"
+                                    class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                <option value="above">Above</option>
+                                <option value="below">Below</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Threshold ($)</label>
+                            <input type="text" x-model="alertForm.threshold" placeholder="50000"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-28">
+                        </div>
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Webhook URL</label>
+                            <input type="text" x-model="alertForm.webhook_url" placeholder="https://hooks.example.com/..."
+                                   class="w-full rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                        </div>
+                        <button @click="createAlert()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">
+                            Create
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Alerts list -->
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Coin</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Condition</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Threshold</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Webhook</th>
+                                    <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="a in alerts" :key="a.ID">
+                                    <tr class="border-b border-slate-100 dark:border-slate-700/50 table-row-hover">
+                                        <td class="px-5 py-3 font-medium text-slate-900 dark:text-white" x-text="a.CoinID"></td>
+                                        <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="a.Condition === 1 ? 'Above' : 'Below'"></td>
+                                        <td class="px-5 py-3 text-slate-600 dark:text-slate-300">$<span x-text="a.Threshold"></span></td>
+                                        <td class="px-5 py-3">
+                                            <span class="text-xs px-2 py-0.5 rounded-full"
+                                                  :class="a.Active ? 'badge-green' : (a.TriggeredAt ? 'badge-yellow' : 'badge-red')"
+                                                  x-text="a.Active ? 'Active' : (a.TriggeredAt ? 'Triggered' : 'Inactive')"></span>
+                                        </td>
+                                        <td class="px-5 py-3 text-xs text-slate-400 truncate max-w-[200px]" x-text="a.WebhookURL"></td>
+                                        <td class="px-5 py-3 text-right">
+                                            <button @click="deleteAlert(a.ID)" class="px-3 py-1 rounded text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <template x-if="alerts.length === 0">
+                        <div class="px-5 py-8 text-center text-sm text-slate-400">No alerts configured. Create one above.</div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ==================== SUBSCRIPTIONS PAGE ==================== -->
+            <div x-show="currentPage === 'subscriptions'">
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Subscriptions</h2>
+
+                <!-- Add subscription form -->
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 p-5 mb-6">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Add Subscription</h3>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Coin ID</label>
+                            <input type="text" x-model="subForm.coin_id" placeholder="bitcoin"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-36">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Currency</label>
+                            <input type="text" x-model="subForm.currency" placeholder="usd"
+                                   class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-24">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Interval</label>
+                            <select x-model="subForm.interval"
+                                    class="rounded-lg border px-3 py-2 text-sm bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                <option value="30s">30s</option>
+                                <option value="60s">60s</option>
+                                <option value="5m">5m</option>
+                                <option value="15m">15m</option>
+                                <option value="1h">1h</option>
+                            </select>
+                        </div>
+                        <button @click="addSubscription()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors">
+                            Subscribe
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Subscriptions list -->
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Coin</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Currency</th>
+                                    <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Interval</th>
+                                    <th class="text-right px-5 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="s in subscriptions" :key="s.CoinID + '-' + s.Currency">
+                                    <tr class="border-b border-slate-100 dark:border-slate-700/50 table-row-hover">
+                                        <td class="px-5 py-3 font-medium text-slate-900 dark:text-white" x-text="s.CoinID"></td>
+                                        <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="s.Currency ? s.Currency.toUpperCase() : ''"></td>
+                                        <td class="px-5 py-3 text-slate-600 dark:text-slate-300" x-text="s.Interval || '-'"></td>
+                                        <td class="px-5 py-3 text-right">
+                                            <button @click="removeSubscription(s.CoinID)" class="px-3 py-1 rounded text-xs bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                                                Remove
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <template x-if="subscriptions.length === 0">
+                        <div class="px-5 py-8 text-center text-sm text-slate-400">No active subscriptions. Add one above.</div>
+                    </template>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+</body>
+</html>

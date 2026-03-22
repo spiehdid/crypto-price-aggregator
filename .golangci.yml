@@ -1,0 +1,24 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - misspell
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  exclude-dirs:
+    - internal/domain/port/mocks

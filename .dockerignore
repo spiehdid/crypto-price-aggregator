@@ -1,0 +1,9 @@
+bin/
+*.exe
+.git/
+.github/
+docs/
+.vscode/
+.idea/
+*.md
+!README.md

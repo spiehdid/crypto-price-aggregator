@@ -1,0 +1,601 @@
+openapi: 3.0.3
+
+info:
+  title: Crypto Price Aggregator
+  version: 1.0.0
+  description: >
+    Aggregates cryptocurrency prices from multiple providers with smart routing
+    and caching. Supports single and batch price lookups, provider health
+    monitoring, and scheduled subscription management.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: health
+    description: Liveness and readiness probes
+  - name: prices
+    description: Cryptocurrency price lookups
+  - name: admin
+    description: Administrative endpoints (require API key)
+
+paths:
+
+  /healthz:
+    get:
+      summary: Liveness probe
+      description: >
+        Returns a simple ok response to indicate the process is alive.
+        Used by container orchestrators to determine whether to restart the pod.
+      operationId: getHealthz
+      tags:
+        - health
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    example: ok
+              example:
+                status: ok
+
+  /readyz:
+    get:
+      summary: Readiness probe
+      description: >
+        Returns a ready response when at least one price provider is available
+        and healthy. Returns 503 when no providers are reachable.
+      operationId: getReadyz
+      tags:
+        - health
+      responses:
+        "200":
+          description: Service is ready to accept traffic
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+              example:
+                status: ready
+                providers: 3
+        "503":
+          description: Service is not ready — no healthy providers available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyResponse"
+              example:
+                status: unavailable
+                providers: 0
+
+  /api/v1/price/{coinID}:
+    get:
+      summary: Get price for a single coin
+      description: >
+        Returns the current price for the specified coin in the requested
+        currency. The aggregator selects the best available provider based on
+        health, rate-limit headroom, and latency.
+      operationId: getPrice
+      tags:
+        - prices
+      parameters:
+        - $ref: "#/components/parameters/CoinIDPath"
+        - $ref: "#/components/parameters/CurrencyQuery"
+      responses:
+        "200":
+          description: Price successfully retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Price"
+              example:
+                coin: bitcoin
+                currency: usd
+                price: "67432.18"
+                provider: coingecko
+                timestamp: "2026-03-21T12:00:00Z"
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_PARAMETER
+                  message: "currency must be a 3-letter ISO 4217 code"
+                  request_id: req_01hx9z
+        "404":
+          description: Coin not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: COIN_NOT_FOUND
+                  message: "coin 'notacoin' was not found in any provider"
+                  request_id: req_01hx9z
+        "502":
+          description: All providers failed to return a price
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: PROVIDER_ERROR
+                  message: "all providers failed for coin 'bitcoin'"
+                  request_id: req_01hx9z
+
+  /api/v1/prices:
+    get:
+      summary: Get prices for multiple coins
+      description: >
+        Returns prices for one or more coins in a single request. Coins that
+        could not be fetched are reported in the errors map; successfully
+        fetched coins appear in the prices array.
+      operationId: getPrices
+      tags:
+        - prices
+      parameters:
+        - name: coins
+          in: query
+          required: true
+          description: Comma-separated list of coin IDs (e.g. bitcoin,ethereum)
+          schema:
+            type: string
+            example: bitcoin,ethereum
+        - $ref: "#/components/parameters/CurrencyQuery"
+      responses:
+        "200":
+          description: >
+            Batch price response. HTTP 200 is returned even when some coins
+            failed; check the errors map for per-coin failure details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PricesResponse"
+              example:
+                prices:
+                  - coin: bitcoin
+                    currency: usd
+                    price: "67432.18"
+                    provider: coingecko
+                    timestamp: "2026-03-21T12:00:00Z"
+                  - coin: ethereum
+                    currency: usd
+                    price: "3521.44"
+                    provider: coinpaprika
+                    timestamp: "2026-03-21T12:00:01Z"
+                errors: {}
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_PARAMETER
+                  message: "'coins' query parameter is required"
+                  request_id: req_01hx9z
+
+  /api/v1/admin/providers:
+    get:
+      summary: List provider statuses
+      description: >
+        Returns the current health and rate-limit status of every configured
+        price provider.
+      operationId: getProviders
+      tags:
+        - admin
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Array of provider status objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderStatus"
+              example:
+                - name: coingecko
+                  healthy: true
+                  remaining_rate: 28
+                  avg_latency_ms: 142
+                  tier: free
+                - name: coinpaprika
+                  healthy: true
+                  remaining_rate: 95
+                  avg_latency_ms: 98
+                  tier: free
+                - name: coinmarketcap
+                  healthy: false
+                  remaining_rate: 0
+                  avg_latency_ms: 0
+                  tier: pro
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/subscriptions:
+    get:
+      summary: List subscriptions
+      description: Returns all active price-fetch subscriptions.
+      operationId: getSubscriptions
+      tags:
+        - admin
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Array of subscription objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subscription"
+              example:
+                - coin_id: bitcoin
+                  currency: usd
+                  interval: 60
+                - coin_id: ethereum
+                  currency: usd
+                  interval: 120
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      summary: Create a subscription
+      description: >
+        Creates a new scheduled subscription that fetches and caches the price
+        for the given coin at the specified interval (in seconds).
+      operationId: createSubscription
+      tags:
+        - admin
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionRequest"
+            example:
+              coin_id: bitcoin
+              currency: usd
+              interval: 60
+      responses:
+        "201":
+          description: Subscription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+              example:
+                coin_id: bitcoin
+                currency: usd
+                interval: 60
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: INVALID_PARAMETER
+                  message: "'interval' must be a positive integer (seconds)"
+                  request_id: req_01hx9z
+        "409":
+          description: Subscription already exists for this coin/currency pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: ALREADY_EXISTS
+                  message: "subscription for bitcoin/usd already exists"
+                  request_id: req_01hx9z
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/subscriptions/{coinID}:
+    delete:
+      summary: Delete a subscription
+      description: >
+        Removes the scheduled subscription for the given coin and currency.
+        The next scheduled fetch will not run after deletion.
+      operationId: deleteSubscription
+      tags:
+        - admin
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CoinIDPath"
+        - $ref: "#/components/parameters/CurrencyQuery"
+      responses:
+        "204":
+          description: Subscription deleted successfully (no content)
+        "404":
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: "no subscription found for bitcoin/usd"
+                  request_id: req_01hx9z
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >
+        API key required for all /api/v1/admin/* endpoints.
+        Pass the key in the X-API-Key request header.
+
+  parameters:
+    CoinIDPath:
+      name: coinID
+      in: path
+      required: true
+      description: >
+        Coin identifier as used by price providers (e.g. bitcoin, ethereum,
+        solana). Case-insensitive; normalised to lower-case internally.
+      schema:
+        type: string
+        example: bitcoin
+
+    CurrencyQuery:
+      name: currency
+      in: query
+      required: false
+      description: >
+        Target fiat or crypto currency for the price quote.
+        Defaults to usd when omitted.
+      schema:
+        type: string
+        default: usd
+        example: usd
+
+  schemas:
+
+    Price:
+      type: object
+      description: A single price quote for one coin.
+      required:
+        - coin
+        - currency
+        - price
+        - provider
+        - timestamp
+      properties:
+        coin:
+          type: string
+          description: Coin identifier (lower-case).
+          example: bitcoin
+        currency:
+          type: string
+          description: Currency in which the price is quoted.
+          example: usd
+        price:
+          type: string
+          description: >
+            Price as a decimal string to preserve precision.
+            Consumers should parse with an arbitrary-precision library.
+          example: "67432.18"
+        provider:
+          type: string
+          description: Name of the provider that sourced this quote.
+          example: coingecko
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC timestamp when the price was fetched (RFC 3339).
+          example: "2026-03-21T12:00:00Z"
+
+    PricesResponse:
+      type: object
+      description: Batch price response returned by GET /api/v1/prices.
+      required:
+        - prices
+        - errors
+      properties:
+        prices:
+          type: array
+          description: Successfully fetched price objects.
+          items:
+            $ref: "#/components/schemas/Price"
+        errors:
+          type: object
+          description: >
+            Map of coin ID to error detail for any coins that could not be
+            fetched. Empty object when all coins succeeded.
+          additionalProperties:
+            type: string
+          example:
+            solana: "all providers failed"
+
+    ProviderStatus:
+      type: object
+      description: Runtime health and rate-limit snapshot for one provider.
+      required:
+        - name
+        - healthy
+        - remaining_rate
+        - avg_latency_ms
+        - tier
+      properties:
+        name:
+          type: string
+          description: Provider identifier.
+          example: coingecko
+        healthy:
+          type: boolean
+          description: >
+            True when the provider responded successfully within the last
+            health-check window.
+          example: true
+        remaining_rate:
+          type: integer
+          description: >
+            Estimated number of API calls remaining in the current rate-limit
+            window. -1 when the provider does not expose this information.
+          example: 28
+        avg_latency_ms:
+          type: integer
+          description: >
+            Rolling average response latency in milliseconds over recent
+            requests. 0 when no requests have been made yet.
+          example: 142
+        tier:
+          type: string
+          description: Subscription tier for this provider.
+          example: free
+
+    Subscription:
+      type: object
+      description: A scheduled price-fetch subscription.
+      required:
+        - coin_id
+        - currency
+        - interval
+      properties:
+        coin_id:
+          type: string
+          description: Coin identifier for this subscription.
+          example: bitcoin
+        currency:
+          type: string
+          description: Currency in which the price is fetched and cached.
+          example: usd
+        interval:
+          type: integer
+          description: Fetch interval in seconds.
+          minimum: 1
+          example: 60
+
+    SubscriptionRequest:
+      type: object
+      description: Request body for creating a new subscription.
+      required:
+        - coin_id
+        - currency
+        - interval
+      properties:
+        coin_id:
+          type: string
+          description: Coin identifier to subscribe to.
+          example: bitcoin
+        currency:
+          type: string
+          description: Currency for the price quote.
+          example: usd
+        interval:
+          type: integer
+          description: Fetch interval in seconds. Must be a positive integer.
+          minimum: 1
+          example: 60
+
+    ReadyResponse:
+      type: object
+      description: Response body for the /readyz endpoint.
+      required:
+        - status
+        - providers
+      properties:
+        status:
+          type: string
+          description: >
+            "ready" when at least one healthy provider is available,
+            "unavailable" otherwise.
+          example: ready
+        providers:
+          type: integer
+          description: Number of currently healthy providers.
+          example: 3
+
+    ErrorDetail:
+      type: object
+      description: Structured error detail returned in error responses.
+      required:
+        - code
+        - message
+        - request_id
+      properties:
+        code:
+          type: string
+          description: >
+            Machine-readable error code (e.g. INVALID_PARAMETER, NOT_FOUND,
+            PROVIDER_ERROR, ALREADY_EXISTS).
+          example: NOT_FOUND
+        message:
+          type: string
+          description: Human-readable description of what went wrong.
+          example: "coin 'xyz' was not found in any provider"
+        request_id:
+          type: string
+          description: Unique identifier for this request, useful for log correlation.
+          example: req_01hx9z
+
+    ErrorResponse:
+      type: object
+      description: Wrapper object for all error responses.
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+
+  responses:
+    Unauthorized:
+      description: Missing or malformed X-API-Key header
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "X-API-Key header is missing or empty"
+              request_id: req_01hx9z
+
+    Forbidden:
+      description: Provided API key is invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: FORBIDDEN
+              message: "the provided API key is not valid"
+              request_id: req_01hx9z

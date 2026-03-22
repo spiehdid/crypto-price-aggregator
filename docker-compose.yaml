@@ -1,0 +1,66 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - CPA_STORAGE_POSTGRES_ENABLED=true
+      - CPA_STORAGE_POSTGRES_DSN=postgres://cpa:cpa@postgres:5432/cpa?sslmode=disable
+      - CPA_STORAGE_REDIS_ENABLED=true
+      - CPA_STORAGE_REDIS_ADDR=redis:6379
+      - CPA_STORAGE_CLICKHOUSE_ENABLED=true
+      - CPA_STORAGE_CLICKHOUSE_ADDR=clickhouse:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cpa
+      POSTGRES_PASSWORD: cpa
+      POSTGRES_DB: cpa
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cpa"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    # No volume — intentionally ephemeral (cache-only)
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6379:6379"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - chdata:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: cpa
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  chdata:

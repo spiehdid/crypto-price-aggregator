@@ -1,0 +1,34 @@
+groups:
+- name: cpa
+  rules:
+  - alert: AllProvidersDown
+    expr: cpa_provider_errors_total > 0 and cpa_requests_total - cpa_cache_hits_total > 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "All price providers are failing"
+
+  - alert: HighCacheMissRate
+    expr: rate(cpa_cache_hits_total[5m]) / rate(cpa_requests_total[5m]) < 0.5
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Cache hit rate below 50%"
+
+  - alert: ClickHouseFlushErrors
+    expr: increase(cpa_clickhouse_flush_errors_total[5m]) > 0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "ClickHouse data flush errors detected"
+
+  - alert: HighProviderLatency
+    expr: histogram_quantile(0.95, rate(cpa_provider_latency_seconds_bucket[5m])) > 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Provider p95 latency exceeds 5 seconds"

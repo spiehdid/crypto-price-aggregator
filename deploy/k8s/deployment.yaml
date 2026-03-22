@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpa
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cpa
+  template:
+    metadata:
+      labels:
+        app: cpa
+    spec:
+      containers:
+      - name: cpa
+        image: crypto-price-aggregator:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: CPA_STORAGE_REDIS_ENABLED
+          value: "true"
+        - name: CPA_STORAGE_REDIS_ADDR
+          value: "redis:6379"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"

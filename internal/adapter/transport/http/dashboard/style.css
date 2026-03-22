@@ -1,0 +1,115 @@
+/* CPA Dashboard - Custom Styles */
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* Smooth transitions */
+.sidebar-transition {
+    transition: width 0.2s ease-in-out;
+}
+
+/* Pulse animation for status dots */
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.animate-pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Chart container */
+.chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 350px;
+}
+
+/* Card hover effect */
+.card-hover {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Table row hover */
+.table-row-hover:hover {
+    background-color: rgba(59, 130, 246, 0.05);
+}
+.dark .table-row-hover:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Badge styles */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.badge-green {
+    background-color: #dcfce7;
+    color: #166534;
+}
+.dark .badge-green {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+}
+.badge-red {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+.dark .badge-red {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+.badge-yellow {
+    background-color: #fef9c3;
+    color: #854d0e;
+}
+.dark .badge-yellow {
+    background-color: rgba(234, 179, 8, 0.2);
+    color: #facc15;
+}
+.badge-blue {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+.dark .badge-blue {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+/* Price change colors */
+.price-up {
+    color: #22c55e;
+}
+.price-down {
+    color: #ef4444;
+}
+
+/* Nav icon placeholder */
+.nav-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}

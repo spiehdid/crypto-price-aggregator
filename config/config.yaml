@@ -1,0 +1,474 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 5s
+  write_timeout: 10s
+  admin_api_key: ""  # empty = auth disabled. Override via CPA_SERVER_ADMIN_API_KEY
+  rate_limit:
+    enabled: false
+    requests_per_second: 10
+    burst: 20
+  cors:
+    enabled: false
+    allowed_origins: ["*"]
+  force_https: false
+
+pricing:
+  default_currency: "usd"
+  cache_ttl: 30s
+  max_retries: 3
+  store_history: true
+  validation:
+    enabled: true
+    max_staleness: 5m
+    max_deviation_percent: 5.0
+    consensus_providers: 3
+    consensus_min_providers: 2
+    consensus_timeout: 3s
+    response_mode: validated    # single | validated | consensus
+    stablecoin_deviation: 2.0
+    major_coin_deviation: 10.0
+    altcoin_deviation: 20.0
+
+polling:
+  default_interval: 60s
+  min_interval: 10s
+
+storage:
+  postgres:
+    enabled: false
+    dsn: "postgres://localhost:5432/cpa?sslmode=disable"
+    max_conns: 20
+    min_conns: 5
+  redis:
+    enabled: false
+    addr: "localhost:6379"
+    password: ""
+    db: 0
+  clickhouse:
+    enabled: false
+    addr: "localhost:9000"
+    database: "cpa"
+    username: "default"
+    password: ""
+    batch_size: 1000
+    batch_interval: 5s
+
+routing:
+  strategy: smart
+  allow_paid: false
+  monthly_budget_usd: 0
+  weights:
+    rate_remaining: 0.4
+    latency: 0.3
+    cost: 0.3
+
+providers:
+  coingecko:
+    enabled: true
+    tier: free
+    priority: 1
+    rate_limit: 30
+    base_url: "https://api.coingecko.com/api/v3"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  coinmarketcap:
+    enabled: true
+    tier: free
+    priority: 2
+    rate_limit: 30
+    api_key: "${CMC_API_KEY}"
+    base_url: "https://pro-api.coinmarketcap.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  coinpaprika:
+    enabled: true
+    tier: free
+    priority: 3
+    rate_limit: 20
+    base_url: "https://api.coinpaprika.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  binance:
+    enabled: true
+    tier: free
+    ws_url: "wss://stream.binance.com:9443/ws"
+  cryptocompare:
+    enabled: true
+    tier: free
+    priority: 4
+    rate_limit: 50
+    base_url: "https://min-api.cryptocompare.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+
+  # Tier 1 - Free, generous limits, no auth
+  coincap:
+    enabled: true
+    tier: free
+    priority: 5
+    rate_limit: 200
+    base_url: "https://api.coincap.io/v2"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  coinlore:
+    enabled: true
+    tier: free
+    priority: 6
+    rate_limit: 60
+    base_url: "https://api.coinlore.net"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  kucoin:
+    enabled: true
+    tier: free
+    priority: 7
+    rate_limit: 30
+    base_url: "https://api.kucoin.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+
+  # Tier 2 - Exchange APIs
+  kraken:
+    enabled: true
+    tier: free
+    priority: 8
+    rate_limit: 20
+    base_url: "https://api.kraken.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  okx:
+    enabled: true
+    tier: free
+    priority: 9
+    rate_limit: 20
+    base_url: "https://www.okx.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  bybit:
+    enabled: true
+    tier: free
+    priority: 10
+    rate_limit: 20
+    base_url: "https://api.bybit.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  mexc:
+    enabled: true
+    tier: free
+    priority: 11
+    rate_limit: 50
+    base_url: "https://api.mexc.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  gateio:
+    enabled: true
+    tier: free
+    priority: 12
+    rate_limit: 30
+    base_url: "https://api.gateio.ws"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  htx:
+    enabled: true
+    tier: free
+    priority: 13
+    rate_limit: 10
+    base_url: "https://api.huobi.pro"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  bitfinex:
+    enabled: true
+    tier: free
+    priority: 14
+    rate_limit: 10
+    base_url: "https://api-pub.bitfinex.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  blockchain:
+    enabled: true
+    tier: free
+    priority: 15
+    rate_limit: 30
+    base_url: "https://blockchain.info"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+
+  # Tier 3 - Requires API key
+  coinranking:
+    enabled: true
+    tier: free
+    priority: 16
+    rate_limit: 7
+    api_key: "${COINRANKING_API_KEY}"
+    base_url: "https://api.coinranking.com/v2"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  messari:
+    enabled: true
+    tier: free
+    priority: 17
+    rate_limit: 20
+    api_key: "${MESSARI_API_KEY}"
+    base_url: "https://data.messari.io/api"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  livecoinwatch:
+    enabled: true
+    tier: free
+    priority: 18
+    rate_limit: 50
+    api_key: "${LIVECOINWATCH_API_KEY}"
+    base_url: "https://api.livecoinwatch.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  dia:
+    enabled: true
+    tier: free
+    priority: 19
+    rate_limit: 30
+    base_url: "https://api.diadata.org"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  twelvedata:
+    enabled: true
+    tier: free
+    priority: 20
+    rate_limit: 8
+    api_key: "${TWELVEDATA_API_KEY}"
+    base_url: "https://api.twelvedata.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  freecryptoapi:
+    enabled: true
+    tier: free
+    priority: 21
+    rate_limit: 30
+    api_key: "${FREECRYPTOAPI_KEY}"
+    base_url: "https://api.freecryptoapi.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  coincodex:
+    enabled: true
+    tier: free
+    priority: 22
+    rate_limit: 30
+    base_url: "https://coincodex.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+
+  # Tier 1 - Major exchanges
+  coinbase:
+    enabled: true
+    tier: free
+    priority: 23
+    rate_limit: 10
+    base_url: "https://api.exchange.coinbase.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  gemini:
+    enabled: true
+    tier: free
+    priority: 24
+    rate_limit: 30
+    base_url: "https://api.gemini.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  cryptodotcom:
+    enabled: true
+    tier: free
+    priority: 25
+    rate_limit: 100
+    base_url: "https://api.crypto.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  poloniex:
+    enabled: true
+    tier: free
+    priority: 26
+    rate_limit: 30
+    base_url: "https://api.poloniex.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  btse:
+    enabled: true
+    tier: free
+    priority: 27
+    rate_limit: 30
+    base_url: "https://api.btse.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  xtcom:
+    enabled: true
+    tier: free
+    priority: 28
+    rate_limit: 30
+    base_url: "https://sapi.xt.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  lbank:
+    enabled: true
+    tier: free
+    priority: 29
+    rate_limit: 30
+    base_url: "https://api.lbkex.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  bingx:
+    enabled: true
+    tier: free
+    priority: 30
+    rate_limit: 30
+    base_url: "https://open-api.bingx.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  alternativeme:
+    enabled: true
+    tier: free
+    priority: 31
+    rate_limit: 30
+    base_url: "https://api.alternative.me"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  wazirx:
+    enabled: true
+    tier: free
+    priority: 32
+    rate_limit: 30
+    base_url: "https://api.wazirx.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  cryptorank:
+    enabled: true
+    tier: free
+    priority: 33
+    rate_limit: 30
+    api_key: "${CRYPTORANK_API_KEY}"
+    base_url: "https://api.cryptorank.io"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  upbit:
+    enabled: true
+    tier: free
+    priority: 34
+    rate_limit: 10
+    base_url: "https://api.upbit.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  bithumb:
+    enabled: true
+    tier: free
+    priority: 35
+    rate_limit: 10
+    base_url: "https://api.bithumb.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  woox:
+    enabled: true
+    tier: free
+    priority: 36
+    rate_limit: 10
+    base_url: "https://api-pub.woox.io"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  phemex:
+    enabled: true
+    tier: free
+    priority: 37
+    rate_limit: 20
+    base_url: "https://api.phemex.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  dexscreener:
+    enabled: true
+    tier: free
+    priority: 38
+    rate_limit: 60
+    base_url: "https://api.dexscreener.com"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  bitstamp:
+    enabled: true
+    tier: free
+    priority: 39
+    rate_limit: 30
+    base_url: "https://www.bitstamp.net"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+  dydx:
+    enabled: true
+    tier: free
+    priority: 40
+    rate_limit: 30
+    base_url: "https://indexer.dydx.trade"
+    circuit_breaker:
+      failure_threshold: 5
+      recovery_timeout: 60s
+
+registry:
+  enabled: true
+  refresh_interval: 1h
+  chains:
+    - ethereum
+    - binance-smart-chain
+    - polygon-pos
+    - arbitrum-one
+    - optimistic-ethereum
+    - avalanche
+    - base
+    - solana
+    - tron
+
+telemetry:
+  logs:
+    enabled: true
+    level: "info"
+    format: "json"
+  metrics:
+    enabled: false
+    exporter: "prometheus"
+    port: 9090
+  traces:
+    enabled: false
+    exporter: "otlp"
+    endpoint: "localhost:4317"
+    sample_rate: 1.0
